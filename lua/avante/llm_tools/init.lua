@@ -518,29 +518,23 @@ function M.rag_search(opts, on_log, on_complete, session_ctx)
   )
 end
 
----@type AvanteLLMToolFunc<{ code: string, path: string, container_image?: string }>
+---@type AvanteLLMToolFunc<{ code: string, path: string }>
 function M.python(opts, on_log, on_complete, session_ctx)
   local abs_path = Helpers.get_abs_path(opts.path)
   if not Helpers.has_permission_to_access(abs_path) then return nil, "No permission to access path: " .. abs_path end
   if not Path:new(abs_path):exists() then return nil, "Path not found: " .. abs_path end
   if on_log then on_log("cwd: " .. abs_path) end
   if on_log then on_log("code:\n" .. opts.code) end
-  local container_image = opts.container_image or "python:3.11-slim-bookworm"
   if not on_complete then return nil, "on_complete not provided" end
   Helpers.confirm(
-    "Are you sure you want to run the following python code in the `"
-      .. container_image
-      .. "` container, in the directory: `"
+    "Are you sure you want to run the following python code`"
+      .. "in the directory: `"
       .. abs_path
       .. "`?\n"
       .. opts.code,
     function(ok, reason)
       if not ok then
         on_complete(nil, "User declined, reason: " .. (reason or "unknown"))
-        return
-      end
-      if vim.fn.executable("docker") == 0 then
-        on_complete(nil, "Python tool is not available to execute any code")
         return
       end
 
@@ -552,14 +546,7 @@ function M.python(opts, on_log, on_complete, session_ctx)
       end
       vim.system(
         {
-          "docker",
-          "run",
-          "--rm",
-          "-v",
-          abs_path .. ":" .. abs_path,
-          "-w",
-          abs_path,
-          container_image,
+          -- Use local python
           "python",
           "-c",
           opts.code,
